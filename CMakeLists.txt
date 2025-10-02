@@ -15,5 +15,5 @@ set(IMGUI_SRC
 )
 
 add_library(imgui STATIC ${IMGUI_SRC})
-target_compile_features(Engine PRIVATE cxx_std_17)
+target_compile_features(Engine PRIVATE cxx_std_20)
 target_include_directories(imgui PUBLIC ${CMAKE_SOURCE_DIR}/Engine/vendor/imgui/)
