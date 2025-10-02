@@ -693,22 +693,22 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
 
 static void ImGui_ImplVulkan_DestroyTexture(ImTextureData* tex)
 {
-    ImGui_ImplVulkan_Texture* backend_tex = (ImGui_ImplVulkan_Texture*)tex->BackendUserData;
-    if (backend_tex == nullptr)
-        return;
-    IM_ASSERT(backend_tex->DescriptorSet == (VkDescriptorSet)tex->TexID);
-    ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();
-    ImGui_ImplVulkan_InitInfo* v = &bd->VulkanInitInfo;
-    ImGui_ImplVulkan_RemoveTexture(backend_tex->DescriptorSet);
-    vkDestroyImageView(v->Device, backend_tex->ImageView, v->Allocator);
-    vkDestroyImage(v->Device, backend_tex->Image, v->Allocator);
-    vkFreeMemory(v->Device, backend_tex->Memory, v->Allocator);
-    IM_DELETE(backend_tex);
+    if (ImGui_ImplVulkan_Texture* backend_tex = (ImGui_ImplVulkan_Texture*)tex->BackendUserData)
+    {
+        IM_ASSERT(backend_tex->DescriptorSet == (VkDescriptorSet)tex->TexID);
+        ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();
+        ImGui_ImplVulkan_InitInfo* v = &bd->VulkanInitInfo;
+        ImGui_ImplVulkan_RemoveTexture(backend_tex->DescriptorSet);
+        vkDestroyImageView(v->Device, backend_tex->ImageView, v->Allocator);
+        vkDestroyImage(v->Device, backend_tex->Image, v->Allocator);
+        vkFreeMemory(v->Device, backend_tex->Memory, v->Allocator);
+        IM_DELETE(backend_tex);
 
-    // Clear identifiers and mark as destroyed (in order to allow e.g. calling InvalidateDeviceObjects while running)
-    tex->SetTexID(ImTextureID_Invalid);
+        // Clear identifiers and mark as destroyed (in order to allow e.g. calling InvalidateDeviceObjects while running)
+        tex->SetTexID(ImTextureID_Invalid);
+        tex->BackendUserData = nullptr;
+    }
     tex->SetStatus(ImTextureStatus_Destroyed);
-    tex->BackendUserData = nullptr;
 }
 
 void ImGui_ImplVulkan_UpdateTexture(ImTextureData* tex)
@@ -1322,8 +1322,6 @@ bool    ImGui_ImplVulkan_Init(ImGui_ImplVulkan_InitInfo* info)
         IM_ASSERT(info->DescriptorPoolSize > 0);
     if (info->UseDynamicRendering)
         IM_ASSERT(info->PipelineInfoMain.RenderPass == VK_NULL_HANDLE && info->PipelineInfoForViewports.RenderPass == VK_NULL_HANDLE);
-    else if (info->PipelineInfoForViewports.RenderPass == NULL)
-        info->PipelineInfoForViewports.RenderPass = info->PipelineInfoMain.RenderPass;
 
     bd->VulkanInitInfo = *info;
 
@@ -1683,7 +1681,7 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
         info.imageFormat = wd->SurfaceFormat.format;
         info.imageColorSpace = wd->SurfaceFormat.colorSpace;
         info.imageArrayLayers = 1;
-        info.imageUsage = (image_usage != 0) ? image_usage : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | image_usage;
         info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;           // Assume that graphics family == present family
         info.preTransform = (cap.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) ? VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR : cap.currentTransform;
         info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -2014,7 +2012,7 @@ static void ImGui_ImplVulkan_CreateWindow(ImGuiViewport* viewport)
         }
         else
         {
-            IM_ASSERT(pipeline_info->RenderPass != VK_NULL_HANDLE && "Did you set ImGui_ImplVulkan_InitInfo::PipelineInfoForViewports.RenderPass?"); // Since 1.92.4 it is required.
+            pipeline_info->RenderPass = wd->RenderPass;
         }
 #endif
         bd->PipelineForViewports = ImGui_ImplVulkan_CreatePipeline(v->Device, v->Allocator, VK_NULL_HANDLE, &v->PipelineInfoForViewports);
